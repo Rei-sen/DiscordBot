@@ -4,6 +4,17 @@ namespace DiscordBot.Model;
 
 public static class RoleExtensions
 {
+    private static readonly Dictionary<Role, string> dict = new Dictionary<Role, string>()
+        {
+            { Role.Tank, "<:tank:1227407436709761095>" },
+            { Role.Healer, "<:healer:1227407228789592114>" },
+            { Role.DPS, "<:dps:1227407135537631282>" },
+            { Role.Tank | Role.Healer, "<:tankhealer:1227407463498649631>" },
+            { Role.Tank | Role.DPS, "<:tankdps:1227407462718509107>" },
+            { Role.Healer | Role.DPS, "<:healerdps:1227407229901082736>" },
+            { Role.Tank | Role.Healer | Role.DPS, "<:tankhealerdps:1227407465142947930>" },
+        };
+
     public static Role FromJob(Job jobRole)
     {
         return jobRole switch
@@ -50,30 +61,7 @@ public static class RoleExtensions
         };
     }
 
-    public static string GetEmoji(Role role)
-    {
-        Dictionary<Role, string> dict = new Dictionary<Role, string>()
-        {
-            { Role.Tank, "<:tank:1227407436709761095>" },
-            { Role.Healer, "<:healer:1227407228789592114>" },
-            { Role.DPS, "<:dps:1227407135537631282>" },
-            { Role.Tank | Role.Healer, "<:tankhealer:1227407463498649631>" },
-            { Role.Tank | Role.DPS, "<:tankdps:1227407462718509107>" },
-            { Role.Healer | Role.DPS, "<:healerdps:1227407229901082736>" },
-            { Role.Tank | Role.Healer | Role.DPS, "<:tankhealerdps:1227407465142947930>" },
-        };
-
-        return dict.TryGetValue(role, out string? emoji) ? emoji : "<:none:1227411038367125637>";
-
-        //if (dict.TryGetValue(role & (Role.Tank | Role.Healer | Role.DPS), out string emoji))
-        //{
-        //    return emoji;
-        //}
-        //else
-        //{
-        //    return "<:none:1227411038367125637>";
-        //}
-    }
-
+    public static string GetEmoji(Role role) =>
+        dict.TryGetValue(role & (Role.Tank | Role.Healer | Role.DPS), out string? emoji) ? emoji : "<:none:1227411038367125637>";
 
 }

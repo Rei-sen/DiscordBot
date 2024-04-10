@@ -23,12 +23,16 @@ public class PFSubscription
         Color = color;
     }
 
-    public EmbedBuilder GetSubscriptionEmbedBuilder()
+    public EmbedBuilder GetSubscriptionEmbedBuilder(bool withTitle = true)
     {
         Color listingColor = (Color)System.Drawing.Color.FromName(Color);
         var builder = new EmbedBuilder()
-            .WithTitle($"{Duty} - {DataCenter}")
             .WithColor(listingColor);
+
+        if (withTitle)
+        {
+            builder.WithTitle($"{Duty} - {DataCenter}");
+        }
 
         return builder;
     }

@@ -27,7 +27,6 @@ public class SubscribeToPF(
         //        await _subscriptionContext.SaveChangesAsync();
 
         var listings = GetEmptyEmbedAsync(subscription);
-
         await message.ModifyAsync(message => message.Embed = listings);
     }
 

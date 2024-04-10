@@ -21,6 +21,12 @@ namespace DiscordBot
                 .ConfigureAppConfiguration(config => config
                     .AddEnvironmentVariables()
                     .AddUserSecrets<Program>())
+                .ConfigureLogging(logging =>
+                {
+                    logging.ClearProviders();
+                    logging.AddConsole();
+                    logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
+                })
                 .ConfigureServices((hostContext, services) =>
                 {
                     services.AddSingleton<IInMemoryRepository<PFListing>, InMemoryRepository<PFListing>>();

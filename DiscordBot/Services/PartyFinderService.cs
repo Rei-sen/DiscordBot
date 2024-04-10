@@ -7,6 +7,7 @@ using DiscordBot.Modules;
 using Discord;
 using Discord.WebSocket;
 using DiscordBot.Model.DB;
+using System.Runtime.ExceptionServices;
 
 namespace DiscordBot.Services;
 
@@ -94,6 +95,50 @@ internal class PartyFinderService(
 
             await message.ModifyAsync(message => message.Embed = listings);
         }
+    }
+
+    public async Task<List<Embed>> GetEmbedsAsync(PFSubscription subscription)
+    {
+        var allListings = await _pfListingRepository.Query();
+
+        var embeds = new List<Embed>();
+        var maxEmbeds = EmbedBuilder.MaxFieldCount / 3;
+
+        var isFirstEmbed = true;
+
+        var relevantListings = allListings
+            .Where(l => l.DataCenter == subscription.DataCenter)
+            .Where(l => l.DutyName.Contains(subscription.Duty))
+            .ToList();
+
+        foreach (var listings in relevantListings
+            .Select((x, i) => new {Index = i, Value = x})
+            .GroupBy(x => x.Index / maxEmbeds)
+            .Select(x => x.Select(v => v.Value).ToList()))
+        {
+            var builder = subscription.GetSubscriptionEmbedBuilder(isFirstEmbed);
+            if (isFirstEmbed)
+            {
+                isFirstEmbed = false;
+            }
+
+            embeds.Add(await GetEmbedAsync(builder, listings));
+        }
+        return embeds;
+    }
+
+    public async Task<Embed> GetEmbedAsync(EmbedBuilder builder, List<PFListing> listings)
+    {
+        foreach (var l in listings)
+        {
+            var expirationTimeStamp = TimestampTag.FormatFromDateTime(DateTime.Now + l.TimeUntilExpiration, TimestampTagStyles.Relative);
+            var lastUpdateTimeStamp = TimestampTag.FormatFromDateTime(DateTime.Now - l.TimeSinceLastUpdate, TimestampTagStyles.Relative);
+            builder.AddField(l.CreatorName, string.Join(" ", l.PartySlots.Select(s => s.GetEmoji())), true)
+                .AddField(l.Tag is null ? "\u200b" : l.Tag, l.Description.Equals("") ? "\u200b" : l.Description, true)
+                .AddField($"<:stopwatch:1227407434390437938>{lastUpdateTimeStamp}", $"<:hourglass:1227407231050584125>{expirationTimeStamp}", true);
+        }
+
+        return builder.Build();
     }
 
     /// <summary>

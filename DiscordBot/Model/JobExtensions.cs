@@ -4,60 +4,9 @@ namespace DiscordBot.Model;
 
 public static class JobExtensions
 {
-    public static Job JobStringToJob(string s)
-    {
-        return s switch
-        {
-            "PLD" => Job.PLD,
-            "WAR" => Job.WAR,
-            "DRK" => Job.DRK,
-            "GNB" => Job.GNB,
+    public static Job JobStringToJob(string s) =>
+       Enum.TryParse(s, out Job job) ? job : Job.Unknown;
 
-            "WHM" => Job.WHM,
-            "SCH" => Job.SCH,
-            "AST" => Job.AST,
-            "SGE" => Job.SGE,
-
-            "MNK" => Job.MNK,
-            "DRG" => Job.DRG,
-            "NIN" => Job.NIN,
-            "SAM" => Job.SAM,
-            "RPR" => Job.RPR,
-
-            "BRD" => Job.BRD,
-            "MCH" => Job.MCH,
-            "DNC" => Job.DNC,
-
-            "SMN" => Job.SMN,
-            "RDM" => Job.RDM,
-            "BLM" => Job.BLM,
-            "BLU" => Job.BLU,
-
-            "CRP" => Job.CRP,
-            "BSM" => Job.BSM,
-            "ARM" => Job.ARM,
-            "GSM" => Job.GSM,
-            "LTW" => Job.LTW,
-            "WVR" => Job.WVR,
-            "ALC" => Job.ALC,
-            "CUL" => Job.CUL,
-
-            "MIN" => Job.MIN,
-            "BTN" => Job.BTN,
-            "FSH" => Job.FSH,
-
-            "GLD" => Job.GLD,
-            "MRD" => Job.MRD,
-            "CNJ" => Job.CNJ,
-            "PGL" => Job.PGL,
-            "LNC" => Job.LNC,
-            "ROG" => Job.ROG,
-            "ARC" => Job.ARC,
-            "ACN" => Job.ACN,
-            "THM" => Job.THM,
-            _ => Job.Unknown,
-        };
-    }
 
     private static readonly Dictionary<Job, string> _emojiDict = new Dictionary<Job, string>()
     {
@@ -94,13 +43,5 @@ public static class JobExtensions
     public static string GetEmoji(Job job)
     {
         return _emojiDict.TryGetValue(job, out string? emoji) ? emoji : "<:nonetaken:1227407859285753996>";
-        //if (_emojiDict.TryGetValue(job, out string emoji))
-        //{
-        //    return emoji;
-        //}
-        //else
-        //{
-        //    return "<:nonetaken:1227407859285753996>";
-        //}
     }
 }
