@@ -4,7 +4,7 @@
 /// Represents a generic repository interface for CRUD operations on entities.
 /// </summary>
 /// <typeparam name="T">The type of entity.</typeparam>
-internal interface IRepository<T> where T : Entity
+public interface IRepository<T> where T : Entity
 {
     /// <summary>
     /// Retrieves an entity by its ID.

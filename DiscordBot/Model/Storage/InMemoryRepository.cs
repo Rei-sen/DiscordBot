@@ -6,7 +6,7 @@ namespace DiscordBot.Model.Storage;
 /// Represents an in-memory repository implementation that stores entities of type T.
 /// </summary>
 /// <typeparam name="T">The type of entity.</typeparam>
-internal class InMemoryRepository<T> : IRepository<T> where T : Entity
+internal class InMemoryRepository<T> : IInMemoryRepository<T> where T : Entity
 {
     private readonly ConcurrentDictionary<string, T> _repository = new();
 
@@ -62,4 +62,14 @@ internal class InMemoryRepository<T> : IRepository<T> where T : Entity
     /// <returns>An IQueryable of all entities in the repository.</returns>
     public Task<IQueryable<T>> Query() =>
         Task.FromResult(_repository.Values.AsQueryable());
+
+    /// <summary>
+    /// Asynchronously clears the repository. 
+    /// </summary>
+    /// <returns>A completed Task.</returns>
+    public Task Clear()
+    {
+        _repository.Clear();
+        return Task.CompletedTask;
+    }
 }

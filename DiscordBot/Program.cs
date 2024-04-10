@@ -1,5 +1,6 @@
 ﻿using Discord.Interactions;
 using Discord.WebSocket;
+using DiscordBot.Model;
 using DiscordBot.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -19,12 +20,13 @@ namespace DiscordBot
                 .ConfigureServices(services =>
                 {
                     services.AddSingleton<IRepository<ChannelSubscription>, InMemoryRepository<ChannelSubscription>>();
+                    services.AddSingleton(typeof(IInMemoryRepository<>), typeof(InMemoryRepository<>));
                     services.AddSingleton<DiscordSocketClient>();
                     services.AddSingleton<InteractionService>();
 
                     services.AddHostedService<InteractionHandler>();
                     services.AddHostedService<DiscordStartup>();
-                    services.AddHostedService<PartyFinder>();
+                    services.AddHostedService<PartyFinderService>(); // starts one (trigginer StartAsync, this will be doing listings)
 
                 }).Build();
 
