@@ -11,12 +11,21 @@ using System.Threading.Tasks;
 
 namespace DiscordBot.Services;
 
+/// <summary>
+/// Represents a class that handles interactions with the Discord API.
+/// </summary>
 internal class InteractionHandler : BackgroundService
 {
     private readonly DiscordSocketClient client;
     private readonly InteractionService interactionService;
     private readonly IServiceProvider services;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="InteractionHandler"/> class.
+    /// </summary>
+    /// <param name="client">The Discord socket client.</param>
+    /// <param name="interactions">The interaction service.</param>
+    /// <param name="services">The service provider.</param>
     public InteractionHandler(DiscordSocketClient client,
                               InteractionService interactions,
                               IServiceProvider services)
@@ -26,6 +35,11 @@ internal class InteractionHandler : BackgroundService
         this.services = services;
     }
 
+    /// <summary>
+    /// Executes the interaction handler asynchronously.
+    /// </summary>
+    /// <param name="stoppingToken">The cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         client.Ready += () => interactionService.RegisterCommandsGloballyAsync(true);
@@ -34,11 +48,22 @@ internal class InteractionHandler : BackgroundService
         await interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), services);
     }
 
+    /// <summary>
+    /// Stops the interaction handler asynchronously.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public override Task StopAsync(CancellationToken cancellationToken)
     {
         interactionService.Dispose();
         return base.StopAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// Handles the interaction asynchronously.
+    /// </summary>
+    /// <param name="interaction">The socket interaction.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private async Task OnInteractionAsync(SocketInteraction interaction)
     {
         try
@@ -57,5 +82,4 @@ internal class InteractionHandler : BackgroundService
             }
         }
     }
-
 }
