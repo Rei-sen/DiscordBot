@@ -1,6 +1,6 @@
-﻿namespace DiscordBot.Services;
+﻿namespace DiscordBot.Model;
 
-public enum DataCenters
+public enum DataCenter
 {
     Aether,
     Chaos,
@@ -13,4 +13,5 @@ public enum DataCenters
     Materia,
     Meteor,
     Primal,
+    Unknown
 }

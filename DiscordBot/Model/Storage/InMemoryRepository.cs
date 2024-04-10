@@ -6,7 +6,7 @@ namespace DiscordBot.Model.Storage;
 /// Represents an in-memory repository implementation that stores entities of type T.
 /// </summary>
 /// <typeparam name="T">The type of entity.</typeparam>
-internal class InMemoryRepository<T> : IInMemoryRepository<T> where T : Entity
+public class InMemoryRepository<T> : IInMemoryRepository<T> where T : Entity
 {
     private readonly ConcurrentDictionary<string, T> _repository = new();
 

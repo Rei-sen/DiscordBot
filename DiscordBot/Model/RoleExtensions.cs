@@ -1,4 +1,6 @@
-﻿namespace DiscordBot.Services;
+﻿using DiscordBot.Services;
+
+namespace DiscordBot.Model;
 
 public static class RoleExtensions
 {
@@ -42,6 +44,7 @@ public static class RoleExtensions
             Job.BLM => Role.DPS,
             Job.BLU => Role.DPS,
 
+            Job.ACN => Role.DPS,
             Job.THM => Role.DPS,
             _ => Role.Other,
         };
@@ -60,7 +63,7 @@ public static class RoleExtensions
             { Role.Tank | Role.Healer | Role.DPS, "<:tankhealerdps:1227407465142947930>" },
         };
 
-        if (dict.TryGetValue(role, out string emoji))
+        if (dict.TryGetValue(role & (Role.Tank | Role.Healer | Role.DPS), out string emoji))
         {
             return emoji;
         }

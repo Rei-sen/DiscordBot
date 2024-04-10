@@ -3,10 +3,20 @@ using Microsoft.Extensions.Hosting;
 using System.Net;
 using DiscordBot.Model;
 using DiscordBot.Model.Storage;
+using DiscordBot.Modules;
+using Discord;
+using Discord.WebSocket;
 
 namespace DiscordBot.Services;
 
-internal class PartyFinderService(IInMemoryRepository<PartyFinderListing> repository) : IHostedService
+/// <summary>
+/// Represents a service for updating and managing party finder listings.
+/// </summary>
+internal class PartyFinderService(
+    DiscordSocketClient _client,
+    IInMemoryRepository<PFListing> _pfListingRepository,
+    IRepository<PFSubscription> _pfSubscriptionRepository
+    ) : IHostedService
 {
     // todo: HttpClient should be singleton because you can use up all the sockets in the Operation System
     private readonly HttpClient _httpClient = new()
@@ -16,26 +26,36 @@ internal class PartyFinderService(IInMemoryRepository<PartyFinderListing> reposi
 
     private CancellationTokenSource? _cancellationTokenSource;
 
+    /// <summary>
+    /// Starts the party finder service asynchronously.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public Task StartAsync(CancellationToken cancellationToken)
     {
         _cancellationTokenSource = new();
         Task.Run(async () =>
         {
-            await UpdateLatestPartyFinderListings();
+            await UpdatePartyFinderListings();
             if (_cancellationTokenSource.Token.IsCancellationRequested)
                 return;
-            
+
             var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
             while (await timer.WaitForNextTickAsync(_cancellationTokenSource.Token))
             {
                 if (_cancellationTokenSource.Token.IsCancellationRequested)
                     return;
-                await UpdateLatestPartyFinderListings();
+                await UpdatePartyFinderListings();
             }
         }, _cancellationTokenSource.Token);
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Stops the party finder service asynchronously.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public Task StopAsync(CancellationToken cancellationToken)
     {
         _cancellationTokenSource?.Cancel();
@@ -43,19 +63,85 @@ internal class PartyFinderService(IInMemoryRepository<PartyFinderListing> reposi
     }
 
     /// <summary>
+    /// Updates the party finder listings and sends updated listings to subscribed channels.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task UpdatePartyFinderListings()
+    {
+        await _pfListingRepository.Clear();
+        await UpdateLatestPartyFinderState();
+
+        foreach (var subscription in await _pfSubscriptionRepository.Query())
+        {
+            var listings = await GetEmbedAsync(subscription);
+            var channel = await _client.GetChannelAsync(subscription.ChannelId) as IMessageChannel;
+            if (channel is null)
+            {
+                await _pfSubscriptionRepository.Delete(subscription);
+                continue;
+            }
+
+            var message = await channel.GetMessageAsync(subscription.MessageId) as IUserMessage;
+            if (message is null)
+            {
+                await _pfSubscriptionRepository.Delete(subscription);
+                continue;
+            }
+
+            await message.ModifyAsync(message => message.Embed = listings);
+        }
+    }
+
+    /// <summary>
+    /// Gets the embed containing party finder listings for a specific subscription.
+    /// </summary>
+    /// <param name="subscription">The party finder subscription.</param>
+    /// <returns>The embed containing the party finder listings.</returns>
+    public async Task<Embed> GetEmbedAsync(PFSubscription subscription)
+    {
+        var listings = await _pfListingRepository.Query();
+
+        var builder = subscription.getSubscriptionEmbedBuilder();
+
+        var allMatchingListings = listings
+            .Where(l => l.DataCenter == subscription.DataCenter)
+            .Where(l => l.DutyName.Contains(subscription.Duty))
+            .ToList();
+
+        int maxListings = EmbedBuilder.MaxFieldCount / 3;
+
+        foreach (var l in allMatchingListings.Take(maxListings))
+        {
+            var expirationTimeStamp = TimestampTag.FormatFromDateTime(DateTime.Now + l.TimeUntilExpiration, TimestampTagStyles.Relative);
+            var lastUpdateTimeStamp = TimestampTag.FormatFromDateTime(DateTime.Now - l.TimeSinceLastUpdate, TimestampTagStyles.Relative);
+            builder.AddField(l.CreatorName, string.Join(" ", l.PartySlots.Select(s => s.GetEmoji())), true)
+                .AddField(l.Tag is null ? "\u200b" : l.Tag, l.Description.Equals("") ? "\u200b" : l.Description, true)
+                .AddField($"<:stopwatch:1227407434390437938>{lastUpdateTimeStamp}", $"<:hourglass:1227407231050584125>{expirationTimeStamp}", true);
+        }
+
+        var remainingListingCount = allMatchingListings.Count() - maxListings;
+
+        if (remainingListingCount > 0)
+        {
+            builder.WithFooter($"+ {remainingListingCount} more listings not shown!");
+        }
+
+        return builder.Build();
+    }
+
+    /// <summary>
     /// Updates the latest party finder listings by making a request to the external website and parsing the HTML content.
     /// </summary>
     /// <returns>A task representing the asynchronous operation.</returns>
-    public async Task UpdateLatestPartyFinderListings()
+    public async Task UpdateLatestPartyFinderState()
     {
-        Console.WriteLine("Updating party finder listings...");
         HttpResponseMessage response = await _httpClient.GetAsync("listings");
         string htmlContent = await response.Content.ReadAsStringAsync();
 
-        await repository.Clear();
+        await _pfListingRepository.Clear();
         foreach (var listing in GetListings(htmlContent))
         {
-            await repository.Insert(listing);
+            await _pfListingRepository.Insert(listing);
         }
     }
 
@@ -64,9 +150,9 @@ internal class PartyFinderService(IInMemoryRepository<PartyFinderListing> reposi
     /// </summary>
     /// <param name="htmlContent">The HTML content to parse.</param>
     /// <returns>A list of PartyFinderListing objects representing the extracted party finder listings.</returns>
-    private IEnumerable<PartyFinderListing> GetListings(string htmlContent)
+    private IEnumerable<PFListing> GetListings(string htmlContent)
     {
-        List<PartyFinderListing> listings = new List<PartyFinderListing>();
+        List<PFListing> listings = new List<PFListing>();
 
         HtmlDocument doc = new HtmlDocument();
         doc.LoadHtml(htmlContent);
@@ -77,44 +163,40 @@ internal class PartyFinderService(IInMemoryRepository<PartyFinderListing> reposi
 
         foreach (HtmlNode listingNode in listingNodes)
         {
-            PartyFinderListing listing = new PartyFinderListing();
-
-            // Parse creator name
-            listing.CreatorName = listingNode.SelectSingleNode(".//div[@class='item creator']/span[@class='text']")?.InnerText ?? "Unknown";
-
-            // Parse data center
-            listing.DataCenter = listingNode.GetAttributeValue("data-centre", "");
-
-            // Parse category
-            listing.Category = listingNode.GetAttributeValue("data-pf-category", "");
-
-            // Parse duty name
-            listing.DutyName = WebUtility.HtmlDecode(listingNode.SelectSingleNode("./div[@class='left']/div[@class='duty cross']")?.InnerText) ?? "";
-
-            // Parse description and tag
-            listing.Description = WebUtility.HtmlDecode(listingNode.SelectSingleNode("./div[@class='left']/div[@class='description']")?.InnerText.Trim()) ?? "";
-
-            // Parse party slots
-            var slotNodes = listingNode.SelectSingleNode("./div[@class='left']/div[@class='party']");
-            listing.PartySlots = ParsePartyNode(slotNodes);
-
-            // Parse minimum item level
-            string minItemLevelStr = listingNode.SelectSingleNode(".//div[@class='middle']//div[@class='value']")?.InnerText ?? "0";
-            uint.TryParse(minItemLevelStr, out uint minItemLevel);
-            listing.MinItemLevel = minItemLevel;
-
-            // Parse time until expiration
-            string expiresStr = listingNode.SelectSingleNode(".//div[@class='item expires']/span[@class='text']")?.InnerText ?? "0";
-            listing.TimeUntilExpiration = ParseTimeSpan(expiresStr);
-
-            // Parse time since last update
-            string updatedStr = listingNode.SelectSingleNode(".//div[@class='item updated']/span[@class='text']")?.InnerText ?? "0";
-            listing.TimeSinceLastUpdate = ParseTimeSpan(updatedStr);
-
+            PFListing listing = ParseListingNode(listingNode);
             yield return listing;
         }
     }
 
+    /// <summary>
+    /// Parses a single listing node and extracts the party finder listing.
+    /// </summary>
+    /// <param name="listingNode">The HTML node representing a party finder listing.</param>
+    /// <returns>A PartyFinderListing object representing the extracted party finder listing.</returns>
+    private PFListing ParseListingNode(HtmlNode listingNode)
+    {
+        var creatorName = listingNode.SelectSingleNode(".//div[@class='item creator']/span[@class='text']")?.InnerText ?? "Unknown";
+        var dataCenterStr = listingNode.GetAttributeValue("data-centre", "");
+        var dataCenter = Enum.TryParse<DataCenter>(dataCenterStr, out DataCenter parsedDataCenter) ? parsedDataCenter : DataCenter.Unknown;
+        var category = listingNode.GetAttributeValue("data-pf-category", "");
+        var dutyName = WebUtility.HtmlDecode(listingNode.SelectSingleNode("./div[@class='left']/div[@class='duty cross']")?.InnerText) ?? "";
+        var tag = WebUtility.HtmlDecode(listingNode.SelectSingleNode("./div[@class='left']/div[@class='description']/span")?.InnerText.Trim());
+        var description = WebUtility.HtmlDecode(listingNode.SelectSingleNode("./div[@class='left']/div[@class='description']")?.InnerText.Trim()) ?? "";
+        if (tag is not null)
+        {
+            description = description.Replace(tag, "").Trim();
+        }
+        var slotNodes = listingNode.SelectSingleNode("./div[@class='left']/div[@class='party']");
+        var partySlots = ParsePartyNode(slotNodes);
+        var minItemLevelStr = listingNode.SelectSingleNode(".//div[@class='middle']//div[@class='value']")?.InnerText ?? "0";
+        uint.TryParse(minItemLevelStr, out uint minItemLevel);
+        var expiresStr = listingNode.SelectSingleNode(".//div[@class='item expires']/span[@class='text']")?.InnerText ?? "0";
+        var timeUntilExpiration = ParseTimeSpan(expiresStr);
+        var updatedStr = listingNode.SelectSingleNode(".//div[@class='item updated']/span[@class='text']")?.InnerText ?? "0";
+        var timeSinceLastUpdate = ParseTimeSpan(updatedStr);
+
+        return new PFListing(creatorName, dataCenter, category, dutyName, description, tag, partySlots, minItemLevel, timeUntilExpiration, timeSinceLastUpdate);
+    }
 
     /// <summary>
     /// Parses the HTML content and extracts the party composition.
@@ -129,7 +211,8 @@ internal class PartyFinderService(IInMemoryRepository<PartyFinderListing> reposi
         {
             var isFree = slotNode.GetAttributeValue("class", "").Contains("filled") ? false : true;
             var availableJobs = slotNode.GetAttributeValue("title", "").Split(' ').ToList();
-            var slot = new Slot(availableJobs, isFree);
+            var jobList = availableJobs.Select(j => JobExtensions.JobStringToJob(j)).ToList();
+            var slot = new Slot(jobList, isFree);
 
             partySlots.Add(slot);
         }
@@ -145,7 +228,7 @@ internal class PartyFinderService(IInMemoryRepository<PartyFinderListing> reposi
     // todo: There's a library for this (moment.net)
     private TimeSpan ParseTimeSpan(string timeStr)
     {
-        
+
         if (timeStr.Equals("in an hour"))
         {
             return TimeSpan.FromHours(1);

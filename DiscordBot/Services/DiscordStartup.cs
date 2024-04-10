@@ -7,22 +7,11 @@ namespace DiscordBot.Services;
 /// <summary>
 /// Represents the startup service for the Discord bot.
 /// </summary>
-internal class DiscordStartup : IHostedService
+internal class DiscordStartup(
+    DiscordSocketClient _client,
+    IConfiguration _config
+    ) : IHostedService
 {
-    private readonly DiscordSocketClient _client;
-    private readonly IConfiguration _config;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="DiscordStartup"/> class.
-    /// </summary>
-    /// <param name="config">The configuration.</param>
-    /// <param name="client">The Discord socket client.</param>
-    public DiscordStartup(IConfiguration config, DiscordSocketClient client)
-    {
-        _config = config;
-        _client = client;
-    }
-
     /// <summary>
     /// Starts the Discord bot asynchronously.
     /// </summary>

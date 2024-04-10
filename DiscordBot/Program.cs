@@ -19,18 +19,17 @@ namespace DiscordBot
                     .AddUserSecrets<Program>()) 
                 .ConfigureServices(services =>
                 {
-                    services.AddSingleton<IRepository<ChannelSubscription>, InMemoryRepository<ChannelSubscription>>();
-                    services.AddSingleton(typeof(IInMemoryRepository<>), typeof(InMemoryRepository<>));
+                    services.AddSingleton<IRepository<PFSubscription>, InMemoryRepository<PFSubscription>>();
+                    services.AddSingleton<IInMemoryRepository<PFListing>, InMemoryRepository<PFListing>>();
                     services.AddSingleton<DiscordSocketClient>();
                     services.AddSingleton<InteractionService>();
 
                     services.AddHostedService<InteractionHandler>();
                     services.AddHostedService<DiscordStartup>();
-                    services.AddHostedService<PartyFinderService>(); // starts one (trigginer StartAsync, this will be doing listings)
+                    services.AddHostedService<PartyFinderService>();
 
                 }).Build();
 
-            await host.RunAsync();
             await host.RunAsync();
         }
     }

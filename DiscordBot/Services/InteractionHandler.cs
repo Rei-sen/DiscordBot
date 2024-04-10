@@ -14,27 +14,12 @@ namespace DiscordBot.Services;
 /// <summary>
 /// Represents a class that handles interactions with the Discord API.
 /// </summary>
-internal class InteractionHandler : BackgroundService
+internal class InteractionHandler(
+    DiscordSocketClient _client,
+    InteractionService _interactionService,
+    IServiceProvider _services
+    ) : BackgroundService
 {
-    private readonly DiscordSocketClient client;
-    private readonly InteractionService interactionService;
-    private readonly IServiceProvider services;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="InteractionHandler"/> class.
-    /// </summary>
-    /// <param name="client">The Discord socket client.</param>
-    /// <param name="interactions">The interaction service.</param>
-    /// <param name="services">The service provider.</param>
-    public InteractionHandler(DiscordSocketClient client,
-                              InteractionService interactions,
-                              IServiceProvider services)
-    {
-        this.client = client;
-        this.interactionService = interactions;
-        this.services = services;
-    }
-
     /// <summary>
     /// Executes the interaction handler asynchronously.
     /// </summary>
@@ -42,10 +27,10 @@ internal class InteractionHandler : BackgroundService
     /// <returns>A task representing the asynchronous operation.</returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        client.Ready += () => interactionService.RegisterCommandsGloballyAsync(true);
-        client.InteractionCreated += OnInteractionAsync;
+        _client.Ready += () => _interactionService.RegisterCommandsGloballyAsync(true);
+        _client.InteractionCreated += OnInteractionAsync;
 
-        await interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), services);
+        await _interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
     }
 
     /// <summary>
@@ -55,7 +40,7 @@ internal class InteractionHandler : BackgroundService
     /// <returns>A task representing the asynchronous operation.</returns>
     public override Task StopAsync(CancellationToken cancellationToken)
     {
-        interactionService.Dispose();
+        _interactionService.Dispose();
         return base.StopAsync(cancellationToken);
     }
 
@@ -68,9 +53,9 @@ internal class InteractionHandler : BackgroundService
     {
         try
         {
-            var context = new SocketInteractionContext(client, interaction);
-            var result = await interactionService.ExecuteCommandAsync(context, services);
-            Console.WriteLine(interaction.ToString());
+            var context = new SocketInteractionContext(_client, interaction);
+            var result = await _interactionService.ExecuteCommandAsync(context, _services);
+
             if (!result.IsSuccess)
                 await context.Channel.SendMessageAsync(result.ToString());
         }

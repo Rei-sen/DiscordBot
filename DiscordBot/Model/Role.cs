@@ -1,4 +1,4 @@
-﻿namespace DiscordBot.Services;
+﻿namespace DiscordBot.Model;
 
 [Flags]
 public enum Role

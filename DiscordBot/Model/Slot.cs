@@ -2,17 +2,8 @@
 
 namespace DiscordBot.Model;
 
-public struct Slot
+public record Slot(List<Job> AvailableJobs, bool IsFree)
 {
-    public List<Job> AvailableJobs { get; set; }
-    public bool IsFree { get; set; }
-
-    public Slot(List<string> jobs, bool isFree)
-    {
-        AvailableJobs = jobs.Select(j => JobExtensions.JobStringToJob(j)).ToList();
-        IsFree = isFree;
-    }
-
     public string GetEmoji()
     {
         if (!IsFree) 

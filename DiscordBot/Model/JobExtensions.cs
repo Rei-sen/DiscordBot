@@ -1,4 +1,6 @@
-﻿namespace DiscordBot.Services;
+﻿using DiscordBot.Services;
+
+namespace DiscordBot.Model;
 
 public static class JobExtensions
 {
