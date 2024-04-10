@@ -1,18 +1,29 @@
 ﻿using Discord;
 using DiscordBot.Model.Storage;
+using System.ComponentModel.DataAnnotations;
 
 namespace DiscordBot.Model;
 
-public record PFSubscription(
-    ulong ChannelId,
-    ulong MessageId,
-    DataCenter DataCenter,
-    string Duty,
-    string Color
-    ) : Entity
+public class PFSubscription
 {
+    [Key]
+    public int Id { get; set; }
+    public ulong ChannelId { get; init; }
+    public ulong MessageId { get; init; }
+    public DataCenter DataCenter { get; init; }
+    public string Duty { get; init; }
+    public string Color { get; init; }
 
-    public EmbedBuilder getSubscriptionEmbedBuilder()
+    public PFSubscription(ulong channelId, ulong messageId, DataCenter dataCenter, string duty, string color)
+    {
+        ChannelId = channelId;
+        MessageId = messageId;
+        DataCenter = dataCenter;
+        Duty = duty;
+        Color = color;
+    }
+
+    public EmbedBuilder GetSubscriptionEmbedBuilder()
     {
         Color listingColor = (Color)System.Drawing.Color.FromName(Color);
         var builder = new EmbedBuilder()

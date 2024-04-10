@@ -6,6 +6,7 @@ using DiscordBot.Model.Storage;
 using DiscordBot.Modules;
 using Discord;
 using Discord.WebSocket;
+using DiscordBot.Model.DB;
 
 namespace DiscordBot.Services;
 
@@ -15,7 +16,8 @@ namespace DiscordBot.Services;
 internal class PartyFinderService(
     DiscordSocketClient _client,
     IInMemoryRepository<PFListing> _pfListingRepository,
-    IRepository<PFSubscription> _pfSubscriptionRepository
+        //IRepository<PFSubscription> _pfSubscriptionRepository
+        PFSubscriptionsContext _subscriptionsContext
     ) : IHostedService
 {
     // todo: HttpClient should be singleton because you can use up all the sockets in the Operation System
@@ -71,20 +73,22 @@ internal class PartyFinderService(
         await _pfListingRepository.Clear();
         await UpdateLatestPartyFinderState();
 
-        foreach (var subscription in await _pfSubscriptionRepository.Query())
+        foreach (var subscription in _subscriptionsContext.Subscriptions)
         {
             var listings = await GetEmbedAsync(subscription);
             var channel = await _client.GetChannelAsync(subscription.ChannelId) as IMessageChannel;
             if (channel is null)
             {
-                await _pfSubscriptionRepository.Delete(subscription);
+                _subscriptionsContext.Remove(subscription);
+                await _subscriptionsContext.SaveChangesAsync();
                 continue;
             }
 
             var message = await channel.GetMessageAsync(subscription.MessageId) as IUserMessage;
             if (message is null)
             {
-                await _pfSubscriptionRepository.Delete(subscription);
+                _subscriptionsContext.Remove(subscription);
+                await _subscriptionsContext.SaveChangesAsync();
                 continue;
             }
 
@@ -101,7 +105,7 @@ internal class PartyFinderService(
     {
         var listings = await _pfListingRepository.Query();
 
-        var builder = subscription.getSubscriptionEmbedBuilder();
+        var builder = subscription.GetSubscriptionEmbedBuilder();
 
         var allMatchingListings = listings
             .Where(l => l.DataCenter == subscription.DataCenter)
@@ -175,7 +179,7 @@ internal class PartyFinderService(
     /// <returns>A PartyFinderListing object representing the extracted party finder listing.</returns>
     private PFListing ParseListingNode(HtmlNode listingNode)
     {
-        var creatorName = listingNode.SelectSingleNode(".//div[@class='item creator']/span[@class='text']")?.InnerText ?? "Unknown";
+        var creatorName = WebUtility.HtmlDecode(listingNode.SelectSingleNode(".//div[@class='item creator']/span[@class='text']")?.InnerText) ?? "Unknown";
         var dataCenterStr = listingNode.GetAttributeValue("data-centre", "");
         var dataCenter = Enum.TryParse<DataCenter>(dataCenterStr, out DataCenter parsedDataCenter) ? parsedDataCenter : DataCenter.Unknown;
         var category = listingNode.GetAttributeValue("data-pf-category", "");

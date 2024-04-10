@@ -63,14 +63,16 @@ public static class RoleExtensions
             { Role.Tank | Role.Healer | Role.DPS, "<:tankhealerdps:1227407465142947930>" },
         };
 
-        if (dict.TryGetValue(role & (Role.Tank | Role.Healer | Role.DPS), out string emoji))
-        {
-            return emoji;
-        }
-        else
-        {
-            return "<:none:1227411038367125637>";
-        }
+        return dict.TryGetValue(role, out string? emoji) ? emoji : "<:none:1227411038367125637>";
+
+        //if (dict.TryGetValue(role & (Role.Tank | Role.Healer | Role.DPS), out string emoji))
+        //{
+        //    return emoji;
+        //}
+        //else
+        //{
+        //    return "<:none:1227411038367125637>";
+        //}
     }
 
 

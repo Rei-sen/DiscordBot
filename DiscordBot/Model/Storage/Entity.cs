@@ -3,7 +3,7 @@
 /// <summary>
 /// Represents an abstract entity in the storage.
 /// </summary>
-public record class Entity
+public record Entity
 {
     /// <summary>
     /// Gets or sets the unique identifier of the entity.

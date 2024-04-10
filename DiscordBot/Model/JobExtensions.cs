@@ -93,13 +93,14 @@ public static class JobExtensions
     };
     public static string GetEmoji(Job job)
     {
-        if (_emojiDict.TryGetValue(job, out string emoji))
-        {
-            return emoji;
-        }
-        else
-        {
-            return "<:nonetaken:1227407859285753996>";
-        }
+        return _emojiDict.TryGetValue(job, out string? emoji) ? emoji : "<:nonetaken:1227407859285753996>";
+        //if (_emojiDict.TryGetValue(job, out string emoji))
+        //{
+        //    return emoji;
+        //}
+        //else
+        //{
+        //    return "<:nonetaken:1227407859285753996>";
+        //}
     }
 }
