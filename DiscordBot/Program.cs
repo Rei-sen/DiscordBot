@@ -30,6 +30,8 @@ namespace DiscordBot
                 .ConfigureServices((hostContext, services) =>
                 {
                     services.AddSingleton<IInMemoryRepository<PFListing>, InMemoryRepository<PFListing>>();
+                    services.AddSingleton<IInMemoryRepository<PFNotificationRequest>, InMemoryRepository<PFNotificationRequest>>();
+
                     services.AddSingleton<DiscordSocketClient>();
                     services.AddSingleton<InteractionService>();
 

@@ -2,8 +2,11 @@
 
 namespace DiscordBot.Model;
 
-public record Slot(List<Job> AvailableJobs, bool IsFree)
+public class Slot(List<Job> availableJobs, bool isFree)
 {
+    public List<Job> AvailableJobs { get; set; } = availableJobs;
+    public bool IsFree { get; set; } = isFree;
+
     public string GetEmoji()
     {
         if (!IsFree) 

@@ -1,4 +1,5 @@
-﻿namespace DiscordBot.Services;
+﻿namespace DiscordBot.Model;
+
 
 public enum Job
 {

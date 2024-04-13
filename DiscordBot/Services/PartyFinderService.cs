@@ -8,6 +8,7 @@ using Discord;
 using Discord.WebSocket;
 using DiscordBot.Model.DB;
 using System.Runtime.ExceptionServices;
+using DiscordBot.Utils;
 
 namespace DiscordBot.Services;
 
@@ -17,8 +18,8 @@ namespace DiscordBot.Services;
 internal class PartyFinderService(
     DiscordSocketClient _client,
     IInMemoryRepository<PFListing> _pfListingRepository,
-        //IRepository<PFSubscription> _pfSubscriptionRepository
-        PFSubscriptionsContext _subscriptionsContext
+    IInMemoryRepository<PFNotificationRequest> _notificationRepository,
+    PFSubscriptionsContext _subscriptionsContext
     ) : IHostedService
 {
     // todo: HttpClient should be singleton because you can use up all the sockets in the Operation System
@@ -39,7 +40,7 @@ internal class PartyFinderService(
         _cancellationTokenSource = new();
         Task.Run(async () =>
         {
-            await UpdatePartyFinderListings();
+            await HandleUpdate();
             if (_cancellationTokenSource.Token.IsCancellationRequested)
                 return;
 
@@ -48,7 +49,7 @@ internal class PartyFinderService(
             {
                 if (_cancellationTokenSource.Token.IsCancellationRequested)
                     return;
-                await UpdatePartyFinderListings();
+                await HandleUpdate();
             }
         }, _cancellationTokenSource.Token);
         return Task.CompletedTask;
@@ -65,15 +66,21 @@ internal class PartyFinderService(
         return Task.CompletedTask;
     }
 
+    public async Task HandleUpdate()
+    {
+        await _pfListingRepository.Clear();
+        await UpdateLatestPartyFinderState();
+
+        await UpdatePartyFinderListings();
+        await SendNotifications();
+    }
+
     /// <summary>
     /// Updates the party finder listings and sends updated listings to subscribed channels.
     /// </summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task UpdatePartyFinderListings()
     {
-        await _pfListingRepository.Clear();
-        await UpdateLatestPartyFinderState();
-
         foreach (var subscription in _subscriptionsContext.Subscriptions)
         {
             var listings = await GetEmbedAsync(subscription);
@@ -97,7 +104,7 @@ internal class PartyFinderService(
         }
     }
 
-    public async Task<List<Embed>> GetEmbedsAsync(PFSubscription subscription)
+    private async Task<List<Embed>> GetEmbedsAsync(PFSubscription subscription)
     {
         var allListings = await _pfListingRepository.Query();
 
@@ -108,11 +115,10 @@ internal class PartyFinderService(
 
         var relevantListings = allListings
             .Where(l => l.DataCenter == subscription.DataCenter)
-            .Where(l => l.DutyName.Contains(subscription.Duty))
-            .ToList();
+            .Where(l => l.DutyName.Contains(subscription.Duty));
 
         foreach (var listings in relevantListings
-            .Select((x, i) => new {Index = i, Value = x})
+            .Select((x, i) => new { Index = i, Value = x })
             .GroupBy(x => x.Index / maxEmbeds)
             .Select(x => x.Select(v => v.Value).ToList()))
         {
@@ -335,6 +341,40 @@ internal class PartyFinderService(
                     return TimeSpan.FromSeconds(time);
                 default:
                     throw new ArgumentException("Invalid time unit.");
+            }
+        }
+    }
+
+    private async Task SendNotifications()
+    {
+        var subscriptions = await _notificationRepository.Query();
+        var allListigns = await _pfListingRepository.Query();
+        foreach (var subscription in subscriptions)
+        {
+            if (subscription.CreationTime < DateTime.Now.AddHours(-1))
+            {
+                await _notificationRepository.Delete(subscription);
+                continue;
+            }
+            var listings = allListigns
+            .Where(l => l.DataCenter == subscription.DataCenter)
+            .Where(l => l.DutyName.Contains(subscription.DutyName));
+            foreach (var listing in listings)
+            {
+                var matcher = new PartyMatcher(listing.PartySlots);
+                if (matcher.Match(subscription.PartyComposition))
+                {
+                    var message = subscription.User.Mention + " A party matching your criteria has been created!";
+                    var builder = new EmbedBuilder()
+                        .WithTitle("Party Finder Alert!")
+                        .WithDescription($"{subscription.DutyName}")
+                        .WithColor(Color.Green);
+                    var embed = await GetEmbedAsync(builder, new List<PFListing> { listing });
+
+                    await subscription.Channel.SendMessageAsync(message, embed: embed);
+                    _notificationRepository.Delete(subscription);
+                    break;
+                }
             }
         }
     }
